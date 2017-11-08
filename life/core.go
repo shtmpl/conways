@@ -38,47 +38,50 @@ type Thing struct {
 type WorldLayout int
 
 const (
-	Torus WorldLayout = iota
-	Unbounded
+	Unbounded WorldLayout = iota
+	Bounded
+	Torus
 )
 
 type World struct {
-	Layout WorldLayout
+	Layout        WorldLayout
 	Width, Height int
 	things        [][]*Thing
 }
 
-func wrap(v, limit int) (int, bool) {
+func wrap(v, limit int) int {
 	switch {
 	case 0 <= v && v < limit:
-		return v, true
-	case limit <= v:
-		return v % limit, true
+		return v
 	case v < 0:
 		if v%limit == 0 {
-			return 0, true
+			return 0
 		} else {
-			return limit + (v % limit), true
+			return limit + (v % limit)
 		}
+	case limit <= v:
+		return v % limit
 	default:
-		return -1, false
+		panic(fmt.Sprintf("There's some weird math happening. Unable to compare two ints: %d, %d", v, limit))
 	}
+}
+
+func offLimit(v, limit int) bool {
+	return v < 0 || limit <= v
 }
 
 func (world *World) FindThing(point Point) (*Thing, bool) {
 	switch world.Layout {
+	case Unbounded:
+		panic("Not implemented") // TODO: Implement
+	case Bounded:
+		if offLimit(point.X, world.Width) || offLimit(point.Y, world.Height) {
+			return nil, false
+		} else {
+			return world.things[point.X][point.Y], true
+		}
 	case Torus:
-		x, appropriate := wrap(point.X, world.Width)
-		if !appropriate {
-			return nil, false
-		}
-
-		y, appropriate := wrap(point.Y, world.Height)
-		if !appropriate {
-			return nil, false
-		}
-
-		return world.things[x][y], true
+		return world.things[wrap(point.X, world.Width)][wrap(point.Y, world.Height)], true
 	default:
 		return nil, false
 	}
@@ -140,15 +143,7 @@ func NewWorld(layout WorldLayout, width, height int, points []*Point) *World {
 	}
 
 	for _, point := range points {
-		x, normalised := wrap(point.X, width)
-		if !normalised {
-			continue
-		}
-
-		y, normalised := wrap(point.Y, height)
-		if !normalised {
-			continue
-		}
+		x, y := wrap(point.X, width), wrap(point.Y, height)
 
 		things[x][y].IsAlive = true
 	}
